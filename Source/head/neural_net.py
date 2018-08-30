@@ -132,10 +132,13 @@ class TwoLayerNet(object):
     #Use Simulated anneling to train this model (Metropolis method)
     def train_sa(self, X, y, X_val, y_val,
             reg=5e-6, num_iters=100, step_len = 0.01,
-            batch_size=200, verbose=False):
+            batch_size=200, T_max=1000, T_min=0.01, verbose=False):
         
         W1, b1 = self.params['W1'], self.params['b1']
         W2, b2 = self.params['W2'], self.params['b2']
+        
+        T = np.copy(T_max)
+        Tfactor = -np.log(T_max / T_min)
         
         num_train = X.shape[0]
         iterations_per_epoch = max(num_train / batch_size, 1)
@@ -144,7 +147,7 @@ class TwoLayerNet(object):
         train_acc_history = []
         val_acc_history = []
         
-        loss_past = loss_new = 0
+        loss_past = loss_new = 1000
         
         for it in xrange(num_iters):
     
@@ -158,7 +161,7 @@ class TwoLayerNet(object):
             loss_new = self.loss(X_batch, y = y_batch, reg = reg)
             
             #Metropolis Method
-            ratio = np.exp(loss_past / loss_new)
+            ratio = np.exp((loss_past - loss_new) / T)
             thres = np.random.uniform(0,1)
             if ratio < thres : # Reject new solution
                 self.params['W1'] = W1
@@ -173,6 +176,7 @@ class TwoLayerNet(object):
             
             if verbose and it % 100 == 0:
                 print('iteration %d / %d: loss %f' % (it, num_iters, loss_past))
+                #print(train_acc)
 
             # Every epoch, check train and val accuracy and decay learning rate.
             if it % iterations_per_epoch == 0:
@@ -182,6 +186,8 @@ class TwoLayerNet(object):
                 val_acc = (self.predict(X_val) == y_val).mean()
                 train_acc_history.append(train_acc)
                 val_acc_history.append(val_acc)
+                
+            T = T_max * np.exp(Tfactor * it / num_iters)
                 
         return {
           'loss_history': loss_history,
